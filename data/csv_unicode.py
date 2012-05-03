@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-#
-# Copyright 2011 Aaron Steele and John Wieczorek
+
+# Copyright 2012 Aaron Steele and University of California at Berkeley
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,15 +15,12 @@
 # limitations under the License.
 #
 
-''' 
-Code copied directly from http://docs.python.org/library/csv.html#csv-examples and modified
-to support fieldnames. Also, `UnicodeReader.next()` is returns dictionaries and 
-`UnicodeWriter.writerow` takes a dictionary - all to support DictWrite and DictReader-like
-behavior.
- 
-Necessary to overcome deficiency in Python 2.7 csv.DictWriter class when trying 
-to output Unicode.
-'''
+__author__ = "Aaron Steele"
+
+"""This module supports reading and writing unicode CSV files.
+
+Code inspired by: http://docs.python.org/library/csv.html#csv-examples 
+"""
 
 import csv, codecs, cStringIO, sys
 
@@ -128,4 +125,3 @@ if __name__ == '__main__':
         print row
         w.writerow(row)
     print "All done."
-        
