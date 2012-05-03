@@ -303,8 +303,8 @@ if __name__ == '__main__':
             if response.code != 200 and response.code != 304: # OK or NOT MODIFIED
                 print 'Download failed with response code %s' % (name, response.code)
                 sys.exit(1)
-            open('dwca.zip', 'w').write(response.read())
-            with zipfile.ZipFile('dwca.zip') as myzip:
+            open('%s.zip' % workspace, 'w').write(response.read())
+            with zipfile.ZipFile('%s.zip' % workspace) as myzip:
                 myzip.extractall()
             metafile = 'meta.xml'
             
