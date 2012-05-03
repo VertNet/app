@@ -5,9 +5,8 @@ This directory contains tools for working with data.
 # Darwin Core Archives → CartoDB
 
 Right now the process of converting a [Darwin Core Archive](http://www.gbif.org/informatics/standards-and-tools/publishing-data/data-standards/darwin-core-archives) into a Darwin Core CSV file is a leetle painful. This will be automated down the road,  but for now here are the steps:
-
-  1.  Convert Darwin Core Archive to Darwin Core CSV file.
-  2.  Upload CSV file to CartoDB dashboard
+1.  Convert Darwin Core Archive to Darwin Core CSV file.
+2.  Upload CSV file to CartoDB dashboard
 
 ### Convert Darwin Core Archive to Darwin Core CSV
 
