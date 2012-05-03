@@ -29,6 +29,7 @@ Note: All <extension> elements are currently ignored.
 import csv_unicode as csvu
 import csv
 import logging
+import os
 import sys
 import urllib2
 import zipfile
@@ -167,7 +168,6 @@ class CoreFileType(object):
         idElem = core.getElementsByTagName('id')
         if len(idElem) > 0:        
             self._recid = IdType(idElem[0].getAttribute('index'))
-            print self._recid.term
 
         # Extracts and sorts core fields with index values:
         fields = [FieldType(x.getAttribute('term') or None, 
@@ -289,9 +289,14 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
     metafile = options.metafile
     destination = options.destination
-    url = options.url
     
+    url = options.url
+
     if url:
+        workspace = url.split('=')[1]
+        os.mkdir(workspace)
+        os.chdir(workspace)
+        destination = '%s.%s' % (workspace, 'csv')
         logging.info('Downloading DwCA: %s' % url)
         try:
             response = urllib2.urlopen(options.url)
