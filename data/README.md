@@ -11,15 +11,15 @@ Right now the process of converting a [Darwin Core Archive](http://www.gbif.org/
 
 ### Convert Darwin Core Archive to Darwin Core CSV
 
-The `dwca2csv.py` Python script downloads, unzips, and converts a [Darwin Core Archive](http://www.gbif.org/informatics/standards-and-tools/publishing-data/data-standards/darwin-core-archives) into a Darwin Core CSV file that can be uploaded to CartoDB.
+The `dwca2csv.py` Python script downloads, unzips, and converts a [Darwin Core Archive](http://www.gbif.org/informatics/standards-and-tools/publishing-data/data-standards/darwin-core-archives) from an [IPT](http://www.gbif.org/informatics/infrastructure/publishing/) installation into a Darwin Core CSV file that can be uploaded to CartoDB. It requires Python version 2.7 or greater.
 
 Example usage:
 
 ```bash
-./dca2csv.py -d data.csv -u http://vertnet.nhm.ku.edu:8080/ipt/archive.do?r=nysm_mammals
+./dca2csv.py -u http://vertnet.nhm.ku.edu:8080/ipt/archive.do?r=nysm_mammals
 ```
 
-That will download and expand the Darwin Core Archive into a file named `dwca.zip`. It will expand the archive into `eml.xml`, `meta.xml`, and `occurrence.txt`. Finally, it will use these files to create `data.csv` which can be uploaded to CartoDB.
+That will create and change into a directory called `nysm_mammals`, download and expand the Darwin Core Archive into a file named `nysm_mammals.zip`. It will expand the archive into `eml.xml`, `meta.xml`, and `occurrence.txt`. Finally, it will use these files to create `nysm_mammals.csv` which can be uploaded to CartoDB.
 
 ### Upload CSV file to CartoDB dashboard
 
