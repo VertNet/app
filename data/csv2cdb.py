@@ -16,21 +16,31 @@
 
 __author__ = "Aaron Steele"
 
-"""This module supports uploading a CSV file to CartoDB over the SQL API."""
+"""This module supports uploading a CSV file to CartoDB over the SQL API.
+
+1) download taxon table into memory: {name:cartodb_id}
+2) for all names in CSV not in taxon table, bulk insert to taxon table
+
+"""
 
 from cartodb import CartoDB, CartoDBException
 
+import collections
 import csv_unicode as csvu
 import csv
 import json
 import logging
 import os
 import sys
+import time
 import threading
 import zipfile
 
 from Queue import Queue
 from optparse import OptionParser
+from ssl import SSLError
+from httplib import BadStatusLine
+
 
 TAXON_CONCEPTS = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 
                   'species', 'scientificname']
@@ -40,51 +50,55 @@ TAXON_TABLE = {}
 
 class Query(object):
 
-    def __init__(self, q, cdb):
-        self.q = q
+    def __init__(self, queue, cdb, query):
+        self.queue = queue
         self.cdb = cdb
+        self.query = query
 
-    def execute(self, data):
-        global TAXON_TABLE
-        name = data['name']
-        taxon = data['taxon']
+    def execute(self, params):
+        retry_count = 10
+        backoff = 1
+        errors = []
+        response = None
+        query = self.prepare_query(params)
 
-        if TAXON_TABLE.has_key(name):
-            return
-
-        try:
-            query = "SELECT cartodb_id FROM taxon WHERE lower(name) = '%s'" % name.lower()
-            response = self.cdb.sql(query)
-            rows = response['rows']
-            
-            if len(rows) == 0:
-                query = "INSERT INTO taxon (name) VALUES ('%s') RETURNING cartodb_id" % name
+        while retry_count > 0:
+            try:
                 response = self.cdb.sql(query)
-                rows = response['rows']
-                logging.info("Inserted %s with response %s" % (name, response))
-            else:
-                logging.info("Selected %s with response %s" % (name, response))
-
-            cartodb_id = rows[0]['cartodb_id']
-            TAXON_TABLE[name] = cartodb_id
-
-        except CartoDBException as e:
-            logging.error('Query failed because %s (%s)' % (query, e))
-        except:
-            logging.error('Query failed: %s' % query)
+            except CartoDBException as e:
+                self.handle(query, params, None, e)
+            except Exception as e:
+                logging.info("Retry %s with backoff %s for %s - %s" % (retry_count, backoff, params, e))
+                errors.append(e)
+                time.sleep(backoff)
+                if backoff < 8:
+                    backoff *= 2
+                retry_count -= 1
+        
+        self.handle(query, params, response, errors)
 
     def loop(self):
         while True:
-            # Fetch a query from the queue and run the query
-            r = self.q.get()
+            r = self.queue.get()
             if r == None:
-                self.q.task_done()
+                self.queue.task_done()
                 break
             else:
-                (data) = r
-            self.execute(data)
-            self.q.task_done()
+                (params) = r
+            self.execute(params)
+            self.queue.task_done()
 
+class TaxonQuery(Query):
+    
+    def prepare_query(self, params):
+        query = ''
+        for name in params['names']:
+            query += self.query % dict(name=name) + ';'
+        return query
+        
+    def handle(self, query, params, response, errors):
+        logging.info('%s %s' % (response, errors))
+        
 def get_options():
     """Parses and returns command line options."""
 
@@ -110,6 +124,24 @@ def get_options():
 
     return options
 
+def taxons_from_csv(path):
+    """Returns a multimap of taxon concept to set of names."""
+    taxons = collections.defaultdict(set)
+    for row in csvu.UnicodeDictReader(open(path, 'r')):
+        row = dict((k.lower(), v) for k, v in row.iteritems()) # lowercase keys
+        for taxon in TAXON_CONCEPTS:
+            name = row.get(taxon)
+            if name:
+                taxons[taxon].add(name.strip().lower())
+    return taxons
+
+def get_taxon_table(cdb):
+    taxon_table = {}
+    response = cdb.sql("SELECT name, cartodb_id FROM taxon")
+    for row in response['rows']:
+        taxon_table[row['name'].lower()] = row['cartodb_id']
+    return taxon_table
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)    
 
@@ -122,28 +154,37 @@ if __name__ == '__main__':
         options.password, 
         options.domain)
     
-    count = 10    
     queue = Queue()
     renderers = {}
-    num_threads = 50
+    num_threads = 40
+
+    query = "INSERT INTO taxon (name) VALUES ('%(name)s')"
 
     for i in range(num_threads): # number of threads
-        renderer = Query(queue, cdb)
+        renderer = TaxonQuery(queue, cdb, query)
         render_thread = threading.Thread(target=renderer.loop)
         render_thread.start()
         renderers[i] = render_thread
 
-    # Fill the queue with taxon names:
-    for row in csvu.UnicodeDictReader(open(options.csv_file, 'r')):
-        row = dict((k.lower(), v) for k, v in row.iteritems()) # lowercase keys
-        for taxon in TAXON_CONCEPTS:
-            if not row.has_key(taxon):
-                continue
-            name = row[taxon]
-            if not name:
-                continue
-            queue.put(dict(taxon=taxon, name=name))
+    taxons = taxons_from_csv(options.csv_file)
+    taxon_table = get_taxon_table(cdb)
 
+    uniques = set()
+    for names in taxons.values():
+        uniques.update(names)
+
+    batch_size = 500
+    names = []
+    for name in uniques:
+        if not taxon_table.has_key(name):
+            if len(names) < batch_size:
+                names.append(name)
+            else:
+                queue.put(dict(names=names))
+                names = []
+    if len(names) > 0:
+        queue.put(dict(names=names))
+    
     for i in range(num_threads):
         queue.put(None)
 
@@ -154,3 +195,6 @@ if __name__ == '__main__':
 
     logging.info(TAXON_TABLE)
     logging.info('CSV successfully uploaded to CartoDB .')
+
+
+

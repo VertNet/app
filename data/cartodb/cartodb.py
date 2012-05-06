@@ -43,7 +43,12 @@ RESOURCE_URL = '%(protocol)s://%(user)s.%(domain)s/api/v1/sql'
 
 
 class CartoDBException(Exception):
-    pass
+    def __init__(self, msg, http_code):
+        self.msg = msg
+        self.http_code = http_code        
+
+    def __str__(self):
+        return "CartoDBException: %s (HTTP CODE %s)" % (self.msg, self.http_code)
 
 class CartoDB(object):
     """ basic client to access cartodb api """
@@ -102,11 +107,11 @@ class CartoDB(object):
                 return json.loads(content)
             return content
         elif resp['status'] == '400':
-            raise CartoDBException(json.loads(content)['error'])
+            raise CartoDBException(json.loads(content)['error'], resp['status'])
         elif resp['status'] == '500':
-            raise CartoDBException('internal server error')
-
-        return None
+            raise CartoDBException('internal server error', resp['status'])
+        else:
+            raise CartoDBException('Unknown error: response=%s content=%s' % (resp, content))
 
 
 
