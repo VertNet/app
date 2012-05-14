@@ -193,8 +193,23 @@ if __name__ == '__main__':
     for i in range(num_threads):
         renderers[i].join()
 
+    # Reload taxon table into memory:
+    taxon_table = get_taxon_table(cdb)
+
+    taxon_locations = {} # name:{column: cartodb_id}
+    for taxon, names in taxons.iteritems():
+        for name in names:
+            taxon_locations[name] = {'taxon_%s_cartodb_id' % taxon: taxon_table[name]}
+    logging.info(taxon_locations)
+
     logging.info(TAXON_TABLE)
     logging.info('CSV successfully uploaded to CartoDB .')
 
 
 
+"""
+1) load CSV and insert names into taxon table
+2) load taxon table into memory
+3) insert into taxon
+
+"""
